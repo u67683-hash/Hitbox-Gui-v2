@@ -1,0 +1,206 @@
+local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local hitboxSize = 8
+local enabled = false
+local hitboxColor = BrickColor.new("Really red")
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "HitboxGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,220,0,200)
+frame.Position = UDim2.new(0,20,0.5,-100)
+frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+-- TITLE
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,30)
+title.BackgroundColor3 = Color3.fromRGB(60,60,60)
+title.Text = "H|TBOX GU| v2 "
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.Parent = frame
+
+-- DRAG FIX
+local dragging = false
+local dragStart
+local startPos
+
+title.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+  dragging = true
+  dragStart = input.Position
+  startPos = frame.Position
+	end
+end)
+
+title.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+  dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not dragging then return end
+
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+	or input.UserInputType == Enum.UserInputType.Touch then
+
+  local delta = input.Position - dragStart
+  frame.Position = UDim2.new(
+   startPos.X.Scale,
+   startPos.X.Offset + delta.X,
+   startPos.Y.Scale,
+   startPos.Y.Offset + delta.Y
+  )
+	end
+end)
+
+-- BUTTON CREATOR
+local function createButton(text, y)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0,200,0,25)
+	btn.Position = UDim2.new(0,10,0,y)
+	btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextScaled = true
+	btn.Text = text
+	btn.Parent = frame
+	return btn
+end
+
+-- BUTTONS
+local toggleBtn = createButton("TOGGLE HITBOX", 40)
+local sizePlus = createButton("SIZE +", 70)
+local sizeMinus = createButton("SIZE -", 100)
+local menuBtn = createButton("COLOR MENU", 130)
+local resetBtn = createButton("RESET", 160)
+
+-- COLOR MENU
+local colorFrame = Instance.new("Frame")
+colorFrame.Size = UDim2.new(0,180,0,140)
+colorFrame.Position = UDim2.new(0,250,0.5,-70)
+colorFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+colorFrame.Visible = false
+colorFrame.Parent = gui
+
+local function setColorUI(text, y, color3)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1,-20,0,25)
+	btn.Position = UDim2.new(0,10,0,y)
+	btn.Text = text
+	btn.BackgroundColor3 = color3
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.Parent = colorFrame
+
+	btn.MouseButton1Click:Connect(function()
+  hitboxColor = BrickColor.new(color3)
+
+  if enabled then
+   for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= player and plr.Character then
+     local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+     if hrp then
+      hrp.BrickColor = hitboxColor
+     end
+    end
+   end
+  end
+	end)
+end
+
+setColorUI("RED", 10, Color3.fromRGB(255,0,0))
+setColorUI("BLUE", 45, Color3.fromRGB(0,170,255))
+setColorUI("GREEN", 80, Color3.fromRGB(0,255,0))
+setColorUI("PURPLE", 115, Color3.fromRGB(170,0,255))
+
+menuBtn.MouseButton1Click:Connect(function()
+	colorFrame.Visible = not colorFrame.Visible
+end)
+
+-- APPLY HITBOX
+local function applyHitbox(char)
+	if not enabled then return end
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+  hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+  hrp.Transparency = 0.7
+  hrp.Material = Enum.Material.Neon
+  hrp.CanCollide = false
+  hrp.BrickColor = hitboxColor
+	end
+end
+
+local function applyToAll()
+	for _, plr in pairs(Players:GetPlayers()) do
+  if plr ~= player and plr.Character then
+   applyHitbox(plr.Character)
+  end
+	end
+end
+
+-- RESPawn + NEW PLAYERS
+local function hookPlayer(plr)
+	plr.CharacterAdded:Connect(function(char)
+  task.wait(0.2)
+  if plr ~= player then
+   applyHitbox(char)
+  end
+	end)
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+	hookPlayer(plr)
+end
+
+Players.PlayerAdded:Connect(hookPlayer)
+
+-- BUTTON LOGIC
+toggleBtn.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	if enabled then
+  applyToAll()
+	end
+end)
+
+sizePlus.MouseButton1Click:Connect(function()
+	hitboxSize += 1
+	if enabled then applyToAll() end
+end)
+
+sizeMinus.MouseButton1Click:Connect(function()
+	if hitboxSize > 1 then
+  hitboxSize -= 1
+  if enabled then applyToAll() end
+	end
+end)
+
+resetBtn.MouseButton1Click:Connect(function()
+	enabled = false
+	hitboxSize = 8
+
+	for _, plr in pairs(Players:GetPlayers()) do
+  if plr ~= player and plr.Character then
+   local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+   if hrp then
+    hrp.Size = Vector3.new(2,2,1)
+    hrp.Transparency = 1
+    hrp.CanCollide = false
+   end
+  end
+	end
+end)
